@@ -36,6 +36,9 @@
     font-size:.82rem; font-weight:600; color:#5b5346; cursor:pointer;
   }
   .store-tabs button.active{background:#2f6b45; color:#fff; border-color:#2f6b45;}
+  .sub-tabs{margin-top:-2px;}
+  .sub-tabs button{font-size:.76rem; padding:6px 6px; background:#f7f5f0;}
+  .sub-tabs button.active{background:#3a6b4a; border-color:#3a6b4a;}
   .add-row{display:flex; gap:6px; flex:1 1 100%;}
   .add-row input{flex:1; padding:9px 12px; border-radius:10px; border:1px solid #ddd6c9; font-size:.9rem;}
   .add-row select{padding:9px; border-radius:10px; border:1px solid #ddd6c9; font-size:.85rem; background:#fff;}
@@ -47,12 +50,16 @@
     background:#fff; border-radius:14px; margin-bottom:10px; overflow:hidden;
     box-shadow:0 1px 4px rgba(0,0,0,.06); border:1px solid #eee7d8;
   }
-  .cat.tobuy{ border:2px solid #2f6b45; }
+  .cat.tobuy{ border:2px solid #2f6b45; margin-bottom:6px; }
   .cat-head{
     display:flex; align-items:center; justify-content:space-between; padding:11px 14px;
     cursor:pointer; user-select:none; background:#fbf8ef;
   }
-  .cat.tobuy .cat-head{ background:#e4f0e6; }
+  .cat.tobuy .cat-head{ background:#e4f0e6; padding:6px 12px; cursor:default; }
+  .cat.tobuy .cat-head .left{ font-size:.78rem; gap:6px; }
+  .cat.tobuy .cat-head .count{ font-size:.68rem; }
+  .cat.tobuy .chev{ display:none; }
+  .cat.tobuy .item{ padding:7px 8px; }
   .cat-head .left{display:flex; align-items:center; gap:8px; font-weight:700; font-size:.95rem;}
   .cat-head .count{font-size:.78rem; color:#8a8172; font-weight:600;}
   .cat-body{padding:2px 8px 8px; display:flex; flex-direction:column;}
@@ -109,6 +116,11 @@
       <button data-store="G">Costco</button>
       <button data-store="S">Superstore</button>
       <button data-store="tobuy">To Buy</button>
+    </div>
+    <div class="store-tabs sub-tabs" id="tobuyStoreTabs" style="display:none;">
+      <button data-tobuystore="ALL" class="active">All stores</button>
+      <button data-tobuystore="G">Costco only</button>
+      <button data-tobuystore="S">Superstore only</button>
     </div>
     <div class="add-row">
       <input id="newItemName" type="text" placeholder="Add an item...">
@@ -271,6 +283,7 @@ function slug(name){ return name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replac
 
 let remote = { checked:{}, custom:[], collapsed:{} };
 let activeStore = "ALL";
+let toBuyStoreFilter = "ALL";
 let searchTerm = "";
 
 function allItems(){
@@ -312,6 +325,8 @@ function render(){
 
     if(toBuyMode){
       catItems = catItems.filter(it=>!!remote.checked[it.id]);
+      if(toBuyStoreFilter==="G") catItems = catItems.filter(it=>it.store==="G"||it.store==="B"||it.store==="custom");
+      else if(toBuyStoreFilter==="S") catItems = catItems.filter(it=>it.store==="S"||it.store==="B"||it.store==="custom");
     } else {
       catItems = catItems.filter(it=>!remote.checked[it.id]);
       if(activeStore==="G") catItems = catItems.filter(it=>it.store==="G"||it.store==="B");
@@ -321,12 +336,14 @@ function render(){
     if(catItems.length===0) return;
 
     anyRendered = true;
+    const isCollapsed = toBuyMode ? false : !!(remote.collapsed||{})[catId];
     const catDiv = document.createElement('div');
-    catDiv.className = "cat" + ((remote.collapsed||{})[catId] ? " collapsed" : "") + (toBuyMode ? " tobuy" : "");
+    catDiv.className = "cat" + (isCollapsed ? " collapsed" : "") + (toBuyMode ? " tobuy" : "");
     const head = document.createElement('div');
     head.className = "cat-head";
     head.innerHTML = `<div class="left"><span class="chev">▾</span>${catLabel}</div><div class="count"></div>`;
     head.addEventListener('click', ()=>{
+      if(toBuyMode) return; // always fully expanded while shopping
       const collapsed = {...(remote.collapsed||{})};
       collapsed[catId] = !collapsed[catId];
       writeField({collapsed});
@@ -367,7 +384,9 @@ function render(){
 
   if(!anyRendered){
     container.innerHTML = toBuyMode
-      ? `<div class="empty-msg">Nothing on your list yet — check off what you need from the All / Costco / Superstore tabs 🙂</div>`
+      ? (toBuyStoreFilter==="ALL"
+          ? `<div class="empty-msg">Nothing on your list yet — check off what you need from the All / Costco / Superstore tabs 🙂</div>`
+          : `<div class="empty-msg">Nothing to buy at ${toBuyStoreFilter==="G"?"Costco":"Superstore"} right now 🙂</div>`)
       : `<div class="empty-msg">No items match. Try a different search or filter 🙂</div>`;
   }
 }
@@ -421,7 +440,22 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{ searchTe
 document.getElementById('storeTabs').addEventListener('click', (e)=>{
   const btn = e.target.closest('button'); if(!btn) return;
   document.querySelectorAll('#storeTabs button').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active'); activeStore = btn.dataset.store; render();
+  btn.classList.add('active'); activeStore = btn.dataset.store;
+  const subTabs = document.getElementById('tobuyStoreTabs');
+  if(activeStore === "tobuy"){
+    subTabs.style.display = "flex";
+  } else {
+    subTabs.style.display = "none";
+    toBuyStoreFilter = "ALL";
+    document.querySelectorAll('#tobuyStoreTabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelector('#tobuyStoreTabs button[data-tobuystore="ALL"]').classList.add('active');
+  }
+  render();
+});
+document.getElementById('tobuyStoreTabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  document.querySelectorAll('#tobuyStoreTabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); toBuyStoreFilter = btn.dataset.tobuystore; render();
 });
 document.getElementById('addBtn').addEventListener('click', ()=>{
   const nameInput = document.getElementById('newItemName');
