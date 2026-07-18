@@ -142,7 +142,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp,
-  arrayUnion, arrayRemove
+  arrayUnion, arrayRemove, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ======================================================================
@@ -344,9 +344,7 @@ function render(){
     head.innerHTML = `<div class="left"><span class="chev">▾</span>${catLabel}</div><div class="count"></div>`;
     head.addEventListener('click', ()=>{
       if(toBuyMode) return; // always fully expanded while shopping
-      const collapsed = {...(remote.collapsed||{})};
-      collapsed[catId] = !collapsed[catId];
-      writeField({collapsed});
+      writeDeep(`collapsed.${catId}`, !isCollapsed);
     });
     catDiv.appendChild(head);
 
@@ -364,15 +362,12 @@ function render(){
         ${it.custom?`<button class="del" title="Remove">✕</button>`:""}
       `;
       row.querySelector('input').addEventListener('change', (e)=>{
-        const checkedMap = {...(remote.checked||{})};
-        checkedMap[it.id] = e.target.checked;
-        writeField({checked: checkedMap});
+        writeDeep(`checked.${it.id}`, e.target.checked);
       });
       if(it.custom){
         row.querySelector('.del').addEventListener('click', ()=>{
-          const custom = (remote.custom||[]).filter(c=>c.id!==it.id);
-          const checkedMap = {...(remote.checked||{})}; delete checkedMap[it.id];
-          writeField({custom, checked: checkedMap});
+          writeField({ custom: arrayRemove({id: it.id, name: it.name, cat: it.cat}) });
+          writeDeep(`checked.${it.id}`, deleteField());
         });
       }
       body.appendChild(row);
@@ -395,6 +390,20 @@ async function writeField(partial){
   if(NOT_CONFIGURED) return;
   try{
     await updateDoc(docRef, partial);
+  }catch(e){
+    console.error("Write failed", e);
+    setSync('error', 'Sync error — check connection/config');
+  }
+}
+
+// Updates a single nested field (e.g. "checked.bananas") in place, rather than
+// rewriting the whole map from local state. This avoids a race condition where
+// two quick taps (or two devices syncing at once) could clobber each other's
+// changes if a write finishes before the previous one has synced back down.
+async function writeDeep(fieldPath, value){
+  if(NOT_CONFIGURED) return;
+  try{
+    await updateDoc(docRef, {[fieldPath]: value});
   }catch(e){
     console.error("Write failed", e);
     setSync('error', 'Sync error — check connection/config');
@@ -463,12 +472,10 @@ document.getElementById('addBtn').addEventListener('click', ()=>{
   const name = nameInput.value.trim();
   if(!name) return;
   const id = slug(name) + "_" + Date.now().toString(36);
-  const custom = [...(remote.custom||[]), {id, name, cat: catSelect.value}];
-  // New items are assumed needed right away, so they land straight in "To Buy".
-  const checkedMap = {...(remote.checked||{})};
-  checkedMap[id] = true;
   nameInput.value = "";
-  writeField({custom, checked: checkedMap});
+  // New items are assumed needed right away, so they land straight in "To Buy".
+  writeField({ custom: arrayUnion({id, name, cat: catSelect.value}) });
+  writeDeep(`checked.${id}`, true);
 });
 document.getElementById('newItemName').addEventListener('keydown', (e)=>{ if(e.key==="Enter") document.getElementById('addBtn').click(); });
 document.getElementById('resetChecksBtn').addEventListener('click', ()=>{
