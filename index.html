@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Nahas Family Grocery List</title>
+<style>
+  :root{ color-scheme: light; }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:#f7f5f0; color:#2b2620;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:14px 14px 90px;}
+  header{
+    background:linear-gradient(135deg,#2f6b45,#4a8a5c);
+    color:#fff; border-radius:16px; padding:16px 18px; margin-bottom:14px;
+    box-shadow:0 4px 14px rgba(0,0,0,.12);
+  }
+  header h1{margin:0 0 4px; font-size:1.25rem; display:flex; align-items:center; gap:8px;}
+  header p{margin:0; font-size:.82rem; opacity:.9;}
+  .sync-status{font-size:.72rem; margin-top:6px; opacity:.85; display:flex; align-items:center; gap:6px;}
+  .dot{width:8px; height:8px; border-radius:50%; background:#ffd166; flex:none;}
+  .dot.live{background:#7ee787;}
+  .dot.error{background:#ff6b6b;}
+  .progress-row{display:flex; align-items:center; gap:10px; margin-top:10px;}
+  .progress-bar{flex:1; height:10px; background:rgba(255,255,255,.3); border-radius:6px; overflow:hidden;}
+  .progress-fill{height:100%; background:#ffd166; width:0%; transition:width .3s ease;}
+  .progress-count{font-size:.78rem; white-space:nowrap; font-weight:600;}
+  .controls{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;}
+  .search{flex:1 1 100%;}
+  .search input{
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid #ddd6c9;
+    font-size:.95rem; background:#fff;
+  }
+  .store-tabs{display:flex; gap:6px; flex:1 1 100%;}
+  .store-tabs button{
+    flex:1; padding:8px 6px; border-radius:10px; border:1px solid #ddd6c9; background:#fff;
+    font-size:.82rem; font-weight:600; color:#5b5346; cursor:pointer;
+  }
+  .store-tabs button.active{background:#2f6b45; color:#fff; border-color:#2f6b45;}
+  .add-row{display:flex; gap:6px; flex:1 1 100%;}
+  .add-row input{flex:1; padding:9px 12px; border-radius:10px; border:1px solid #ddd6c9; font-size:.9rem;}
+  .add-row select{padding:9px; border-radius:10px; border:1px solid #ddd6c9; font-size:.85rem; background:#fff;}
+  .add-row button{
+    padding:9px 14px; border-radius:10px; border:none; background:#2f6b45; color:#fff;
+    font-weight:700; font-size:.9rem; cursor:pointer;
+  }
+  .cat{
+    background:#fff; border-radius:14px; margin-bottom:10px; overflow:hidden;
+    box-shadow:0 1px 4px rgba(0,0,0,.06); border:1px solid #eee7d8;
+  }
+  .cat-head{
+    display:flex; align-items:center; justify-content:space-between; padding:11px 14px;
+    cursor:pointer; user-select:none; background:#fbf8ef;
+  }
+  .cat-head .left{display:flex; align-items:center; gap:8px; font-weight:700; font-size:.95rem;}
+  .cat-head .count{font-size:.78rem; color:#8a8172; font-weight:600;}
+  .cat-body{padding:2px 8px 8px; display:flex; flex-direction:column;}
+  .cat.collapsed .cat-body{display:none;}
+  .chev{transition:transform .2s; font-size:.75rem; color:#8a8172;}
+  .cat.collapsed .chev{transform:rotate(-90deg);}
+  .item{display:flex; align-items:center; gap:10px; padding:9px 8px; border-radius:8px; order:1;}
+  .item:active{background:#f5f1e6;}
+  .item.checked{order:2; opacity:.45;}
+  .item.checked .name{text-decoration:line-through;}
+  .item input[type=checkbox]{width:20px; height:20px; accent-color:#2f6b45; flex:none;}
+  .item .name{flex:1; font-size:.93rem;}
+  .badge{font-size:.68rem; padding:2px 7px; border-radius:20px; font-weight:700; flex:none;}
+  .badge.G{background:#e4f0e6; color:#2f6b45;}
+  .badge.S{background:#eef0fb; color:#3a4bb0;}
+  .badge.B{background:#fbeede; color:#a8641b;}
+  .del{border:none; background:none; color:#c0453a; font-size:1rem; cursor:pointer; flex:none; padding:2px 4px;}
+  .empty-msg{text-align:center; color:#a39c8b; padding:30px 10px; font-size:.9rem;}
+  footer{
+    position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #eee7d8;
+    padding:10px 14px; display:flex; gap:10px; justify-content:center;
+    box-shadow:0 -2px 10px rgba(0,0,0,.05);
+  }
+  footer button{
+    padding:9px 16px; border-radius:10px; border:1px solid #ddd6c9; background:#fff;
+    font-size:.85rem; font-weight:600; cursor:pointer; color:#5b5346;
+  }
+  footer button.primary{background:#2f6b45; color:#fff; border-color:#2f6b45;}
+  .confetti-msg{text-align:center; font-size:.9rem; font-weight:700; color:#2f6b45; padding:8px 0 0; display:none;}
+  .confetti-msg.show{display:block;}
+  .setup-banner{
+    background:#fff3cd; border:1px solid #ffe08a; color:#7a5b00; border-radius:12px;
+    padding:12px 14px; font-size:.82rem; margin-bottom:12px; line-height:1.4;
+  }
+  .setup-banner code{background:#fff; padding:1px 5px; border-radius:5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- This banner only shows if firebaseConfig below hasn't been filled in yet. Remove it once configured. -->
+  <div class="setup-banner" id="setupBanner" style="display:none;">
+    ⚠️ Not connected yet. Open this file and paste your Firebase project config into the
+    <code>firebaseConfig</code> object near the bottom of the script, then re-upload.
+  </div>
+
+  <header>
+    <h1>🛒 Nahas Family Grocery List</h1>
+    <p>Synced live between your phone and Jennifer's.</p>
+    <div class="sync-status"><span class="dot" id="syncDot"></span><span id="syncText">Connecting…</span></div>
+    <div class="progress-row">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-count" id="progressCount">0 / 0</div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="search"><input id="searchInput" type="text" placeholder="🔍 Search items..."></div>
+    <div class="store-tabs" id="storeTabs">
+      <button data-store="ALL" class="active">All</button>
+      <button data-store="G">Grocery</button>
+      <button data-store="S">Superstore</button>
+      <button data-store="unchecked">To Buy</button>
+    </div>
+    <div class="add-row">
+      <input id="newItemName" type="text" placeholder="Add an item...">
+      <select id="newItemCat"></select>
+      <button id="addBtn">Add</button>
+    </div>
+  </div>
+
+  <div id="listContainer"></div>
+  <div class="confetti-msg" id="confettiMsg">🎉 Everything's checked off — nice work!</div>
+</div>
+
+<footer>
+  <button id="resetChecksBtn">Uncheck all</button>
+  <button id="clearCustomBtn">Remove added items</button>
+  <button class="primary" id="expandAllBtn">Expand / collapse all</button>
+</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp,
+  arrayUnion, arrayRemove
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ======================================================================
+   Firebase config — public by design; Firestore security rules (set in
+   the console) are what actually control access, not this object.
+====================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAInngyziDmNJFYGAy_A-9oXwVrAUL_MFs",
+  authDomain: "nahas-grocery-list.firebaseapp.com",
+  projectId: "nahas-grocery-list",
+  storageBucket: "nahas-grocery-list.firebasestorage.app",
+  messagingSenderId: "937075288179",
+  appId: "1:937075288179:web:9f0bcef605f738916ca206"
+};
+const NOT_CONFIGURED = firebaseConfig.apiKey.startsWith("PASTE_");
+if (NOT_CONFIGURED) document.getElementById('setupBanner').style.display = 'block';
+
+let db, docRef;
+if (!NOT_CONFIGURED) {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  docRef = doc(db, "grocery", "shared");
+}
+
+/* ---------------------------------------------------------------------
+   STATIC ITEM CATALOG (not stored in Firebase — just code, identical on
+   every device. Only checked/custom/collapsed state, which changes as
+   you shop, lives in Firestore and syncs live.)
+--------------------------------------------------------------------- */
+const CATS = [
+  ["produce","🥦 Produce"],["dairy","🧀 Dairy & Eggs"],["meat","🥩 Meat & Seafood"],
+  ["bakery","🍞 Bakery & Bread"],["pantry","🍝 Pantry: Grains, Pasta & Canned"],
+  ["condiments","🧂 Condiments, Sauces & Spices"],["baking","🧁 Baking"],
+  ["snacks","🍪 Snacks & Bars"],["frozen","🧊 Frozen"],["beverages","🥤 Beverages"],
+  ["baby","🍼 Baby"],["health","💊 Health & Personal Care"],
+  ["household","🧼 Household & Cleaning"],["paper","🧻 Paper & Plastic"],
+  ["batteries","🔋 Batteries & Auto"],["custom","✏️ Added by you"]
+];
+
+// [name, category, store]  store: G=Grocery list, S=Superstore list, B=Both
+const DATA = [
+["Dijon mustard","condiments","B"],["Turkey (deli)","meat","G"],["Turkey breast (deli)","meat","G"],
+["Cucumbers (regular & mini)","produce","B"],["Pesto","condiments","G"],["Mini ice cream sandwiches","frozen","G"],
+["Fruit (mixed)","produce","G"],["AAA batteries","batteries","G"],["AA batteries","batteries","G"],
+["Square batteries","batteries","G"],["Advil cold and sinus","health","G"],["Advil for kids","health","G"],
+["Advil liquid gels","health","G"],["Almond butter","condiments","G"],["Peanut butter (natural)","condiments","G"],
+["Peanut butter (smooth MaraNatha)","condiments","S"],["Almond milk","dairy","G"],["Almonds","pantry","G"],
+["Annie's mac & cheese","pantry","G"],["Annie's mac & cheese (bunnies)","pantry","S"],["Kraft dinner (not Annie's)","pantry","S"],
+["Antibacterial hand soap","household","B"],["Apples (gala/green)","produce","B"],["Asparagus","produce","B"],
+["Avocados","produce","B"],["Baby potatoes","produce","B"],["Baby wipes (Kirkland)","baby","G"],
+["Size 4 diapers (Pampers Swaddler)","baby","S"],["Bacon","meat","B"],["Bananas","produce","B"],
+["Beef (roast/misc cut)","meat","G"],["Ground beef","meat","S"],["Ground turkey","meat","S"],
+["Black beans","pantry","G"],["Refried beans","pantry","S"],["Chickpea cans","pantry","G"],
+["Cans of corn","pantry","G"],["Diced tomatoes (canned)","pantry","S"],["Block of salted butter","dairy","G"],
+["Butter sticks (unsalted)","dairy","S"],["Becel light margarine","dairy","S"],["Blue bags (poop bags)","household","G"],
+["Blue cheese","dairy","G"],["Blue cheese olives","condiments","S"],["Mixed green olives","condiments","G"],
+["Olive juice","condiments","G"],["Bottles / cans of water","beverages","B"],["Bouncy laundry sheets","household","G"],
+["Laundry tabs","household","G"],["Brussels sprouts","produce","B"],["Bubly sparkling water","beverages","G"],
+["Caesar dressing","condiments","G"],["Caesar rim salt","condiments","S"],["Cashews","pantry","G"],
+["Walnuts","pantry","G"],["Pecans","pantry","G"],["Pine nuts","pantry","G"],["Cauliflower wings","frozen","G"],
+["Cauliflower","produce","S"],["Celery","produce","B"],["Cheese - Parmesan","dairy","B"],
+["Cheddar cheese (block/shredded)","dairy","B"],["Cheese strings","dairy","B"],["Goat cheese","dairy","G"],
+["Feta","dairy","S"],["Shredded cheese (feta/parm/mozz)","dairy","S"],["Cottage cheese","dairy","S"],
+["Cream cheese (for bagels)","dairy","S"],["Cheerios","pantry","B"],["Mini wheats","pantry","S"],
+["Vector cereal","pantry","G"],["Chewable Vitamin C","health","G"],["Vitamin C","health","G"],
+["Chicken (whole/breast)","meat","G"],["Chicken broth","pantry","G"],["Beef broth","pantry","S"],
+["Vegetable broth","pantry","S"],["Chicken fingers","frozen","G"],["Chicken nuggets (Jane's)","frozen","S"],
+["Popcorn chicken (frozen)","frozen","S"],["Rotisserie chicken","meat","S"],["Chicken Thai soup (PC)","pantry","S"],
+["Chips - Krinkle cut","snacks","G"],["Chips (assorted)","snacks","S"],["Corn chips","snacks","G"],
+["Pretzels","snacks","B"],["Pita chips (Cedar Valley)","snacks","G"],["Triscuits (sea salt & various)","snacks","S"],
+["Vinta crackers","snacks","S"],["Goldfish crackers","snacks","S"],["Popcorn kernels","snacks","S"],
+["Animal crackers (organic GF)","snacks","S"],["Chocolate chips (Kirkland big bag)","baking","B"],
+["Chocolate bunnies","snacks","S"],["Sprinkles","baking","S"],["Cinnamon","condiments","G"],["Nutmeg","condiments","G"],
+["Cinnamon rolls","bakery","G"],["Coconut curry sauce","condiments","G"],["Red curry paste","condiments","S"],
+["Coconut milk (can)","pantry","S"],["Coconut oil","condiments","G"],["Coconut water","beverages","G"],
+["Corn (fresh)","produce","G"],["Cranberries (for salad)","produce","G"],["Croutons","pantry","B"],
+["Dates","snacks","G"],["Fig bars","snacks","G"],["Dish soap","household","B"],["Drawstring garbage bags","paper","G"],
+["Garbage bags - black large","paper","G"],["Garbage bags - clear large","paper","G"],
+["Clear garbage bags (diaper pail)","paper","S"],["Dry shampoo","health","G"],["Shampoo","health","G"],
+["Edamame","frozen","G"],["Eggs","dairy","B"],["Fluoride rinse (purple)","health","G"],["Fluffy duster refill","household","G"],
+["Frozen fries","frozen","G"],["Frozen veggies (mixed)","frozen","G"],["Frozen veggies (sweet potato)","frozen","G"],
+["Frozen peas & carrots mix","frozen","S"],["Frozen mango","frozen","S"],["Hash browns","frozen","S"],
+["Gnocchi","pantry","B"],["Gogo squeeze packs","snacks","G"],["Granola","pantry","G"],["Keto granola","pantry","G"],
+["Made Good bars","snacks","B"],["Greek yogurt (vanilla)","dairy","B"],["Greek yogurt (plain)","dairy","G"],
+["Yogurt (plain)","dairy","S"],["Green beans","produce","G"],["Honey","condiments","G"],["Maple syrup","condiments","G"],
+["Jam","condiments","G"],["Nutella","condiments","B"],["Hummus","condiments","G"],["Jenn's orange bread","bakery","G"],
+["Kids multivitamins","health","G"],["Vitamins for kids (gummy)","health","G"],["Probiotic (orange, chewable)","health","S"],
+["Protein powder (chocolate GoodProtein)","health","G"],["Vanilla protein powder","health","G"],["Kleenex","paper","G"],
+["Kodiak protein pancake mix","pantry","G"],["Pancake mix","pantry","G"],["Lemons","produce","B"],["Limes","produce","B"],
+["Lettuce (romaine)","produce","G"],["Arugula","produce","S"],["Salad packs","produce","G"],["Spinach","produce","B"],
+["Lysol wipes","household","B"],["Magic eraser","household","G"],["Mangoes (fresh)","produce","B"],
+["Mangoes (dried)","snacks","G"],["Mushrooms","produce","G"],["Naan bread","bakery","G"],["Tortillas","bakery","B"],
+["Soft shell corn tortillas","bakery","S"],["Tortilla wraps (whole wheat, low carb)","bakery","S"],["Oatcakes","pantry","G"],
+["Oats","pantry","G"],["Cooking spray (oil)","condiments","G"],["Olive oil","condiments","G"],["Vinegar (white)","condiments","B"],
+["Apple cider vinegar","condiments","S"],["Red wine vinegar","condiments","S"],["Balsamic vinaigrette","condiments","S"],
+["Salad dressings (assorted)","condiments","S"],["Oranges / clementines","produce","B"],["Organic compost bags","paper","G"],
+["Paper towel","paper","G"],["Toilet paper","paper","G"],["Tin foil","paper","G"],
+["Small sandwich/freezer ziplock bags","paper","G"],["Ziplock bags (large)","paper","G"],
+["Ziplock bags (medium freezer)","paper","G"],["Ziplock sandwich bags","paper","G"],["Parboiled rice","pantry","B"],
+["Rice (white)","pantry","S"],["Pasta (assorted shapes)","pantry","G"],["Fresh pasta","pantry","S"],
+["Pasta - orzo","pantry","S"],["Pasta - penne","pantry","S"],["Pasta - small shells","pantry","S"],["Macaroni","pantry","S"],
+["Letter pasta","pantry","S"],["Lentil spaghetti noodles","pantry","S"],["Spaghetti (super greens)","pantry","S"],
+["Grandad's premade pasta bowl","pantry","S"],["Pineapple (canned)","pantry","B"],["Polident retainer tablets","health","G"],
+["Prescription (Peter)","health","G"],["Q-tips","health","G"],["Tampons","health","G"],["Toothbrush heads","health","G"],
+["Toothpaste","health","G"],["Rao's pasta sauce","condiments","G"],["Bolognese pasta sauce","condiments","S"],
+["Tomato basil pasta sauce","condiments","S"],["Salmon (fresh/fillets)","meat","G"],["Steak (top sirloin)","meat","G"],
+["Tuna poke","meat","G"],["Pepperoni (for pizza)","meat","S"],["Salt (sea salt)","condiments","G"],
+["Scrubbing bubbles bathroom spray","household","G"],["Bleach bathroom/shower cleaner","household","S"],
+["Mold & mildew shower cleaner","household","S"],["Toilet bowl cleaner","household","G"],["Blue scrubbies","household","S"],
+["Windex","household","S"],["Seaweed snacks","snacks","G"],["Soy milk","dairy","G"],["Soya sauce","condiments","B"],
+["Tofu","pantry","G"],["Sourdough","bakery","G"],["Bread (Roman sandwiches)","bakery","S"],
+["Croissants (Pillsbury)","bakery","S"],["Mini muffins","bakery","S"],["Mini donuts","bakery","S"],
+["Pizza dough balls","bakery","S"],["Strawberries","produce","B"],["Tomatoes","produce","B"],["Tylenol for kids","health","G"],
+["Vanilla extract","baking","G"],["Yogi's (cereal/bar)","pantry","G"],["Washer fluid","batteries","G"],["Peaches","produce","G"],
+["Peppers (bell)","produce","B"],["Chilli / jalapeño peppers","produce","S"],["Red bell pepper","produce","S"],
+["Garlic","produce","S"],["Ginger","produce","S"],["Shallots","produce","S"],["Red onion","produce","S"],
+["Sweet onion","produce","S"],["Green onion","produce","S"],["Sweet potato","produce","S"],["Butternut squash","produce","S"],
+["Broccoli","produce","S"],["Carrots (baby & large)","produce","S"],["Blackberries","produce","S"],
+["Blueberries","produce","S"],["Raspberries","produce","S"],["Green grapes","produce","S"],["Cantaloupe","produce","S"],
+["Kiwi","produce","S"],["Parsley","produce","S"],["Cilantro","produce","S"],["Dill","produce","S"],
+["Valentino hot sauce","condiments","S"],["Cholula hot sauce","condiments","S"],["Cholula salsa (mild)","condiments","S"],
+["Dave's hot sauce","condiments","S"],["Tobasco hot sauce","condiments","S"],["Salsa","condiments","S"],
+["Green salsa","condiments","S"],["Pink sauce (for tacos)","condiments","S"],["Ketchup","condiments","S"],
+["Mustard (assorted / plain yellow)","condiments","S"],["Mayonnaise","condiments","S"],["Horseradish","condiments","S"],
+["Worcestershire sauce","condiments","S"],["Tartar sauce","condiments","S"],["Gravy package","condiments","S"],
+["Fajita spice","condiments","S"],["Julienned sundried tomatoes","pantry","S"],["Tzatziki","condiments","S"],
+["Baking powder","baking","S"],["Baking soda","baking","S"],["Brown sugar","baking","S"],["White sugar","baking","S"],
+["Flour (white/baking)","baking","S"],["Semolina flour","baking","S"],["Clamato juice","beverages","S"],
+["Coffee","beverages","S"],["Orange juice","beverages","S"],["Gatorade G2","beverages","S"],["Tonic (sugar free)","beverages","S"],
+["Toothpicks","household","S"]
+];
+
+function slug(name){ return name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
+
+let remote = { checked:{}, custom:[], collapsed:{} };
+let activeStore = "ALL";
+let searchTerm = "";
+
+function allItems(){
+  const base = DATA.map(d=>({id:slug(d[0]), name:d[0], cat:d[1], store:d[2]}));
+  const custom = (remote.custom||[]).map(c=>({id:c.id, name:c.name, cat:c.cat, store:"custom", custom:true}));
+  return base.concat(custom);
+}
+
+function populateCatSelect(){
+  const sel = document.getElementById('newItemCat');
+  sel.innerHTML = "";
+  CATS.filter(c=>c[0]!=="custom").forEach(c=>{
+    const o = document.createElement('option'); o.value = c[0]; o.textContent = c[1]; sel.appendChild(o);
+  });
+}
+
+function render(){
+  const container = document.getElementById('listContainer');
+  container.innerHTML = "";
+  const items = allItems();
+  const term = searchTerm.trim().toLowerCase();
+  let totalVisible = 0, checkedVisible = 0, anyRendered = false;
+
+  CATS.forEach(([catId, catLabel])=>{
+    let catItems = items.filter(it=>it.cat===catId);
+    if(activeStore==="G") catItems = catItems.filter(it=>it.store==="G"||it.store==="B");
+    else if(activeStore==="S") catItems = catItems.filter(it=>it.store==="S"||it.store==="B");
+    else if(activeStore==="unchecked") catItems = catItems.filter(it=>!remote.checked[it.id]);
+    if(term) catItems = catItems.filter(it=>it.name.toLowerCase().includes(term));
+    if(catItems.length===0) return;
+
+    anyRendered = true;
+    const catDiv = document.createElement('div');
+    catDiv.className = "cat" + ((remote.collapsed||{})[catId] ? " collapsed" : "");
+    const head = document.createElement('div');
+    head.className = "cat-head";
+    head.innerHTML = `<div class="left"><span class="chev">▾</span>${catLabel}</div><div class="count"></div>`;
+    head.addEventListener('click', ()=>{
+      const collapsed = {...(remote.collapsed||{})};
+      collapsed[catId] = !collapsed[catId];
+      writeField({collapsed});
+    });
+    catDiv.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = "cat-body";
+    let catChecked = 0;
+    catItems.sort((a,b)=>a.name.localeCompare(b.name)).forEach(it=>{
+      const checked = !!remote.checked[it.id];
+      if(checked) catChecked++;
+      totalVisible++; if(checked) checkedVisible++;
+      const row = document.createElement('div');
+      row.className = "item" + (checked ? " checked" : "");
+      const badge = it.store==="G" ? "G" : it.store==="S" ? "S" : it.store==="B" ? "B" : "";
+      const badgeLabel = it.store==="G"?"Grocery":it.store==="S"?"Superstore":it.store==="B"?"Both":"";
+      row.innerHTML = `
+        <input type="checkbox" ${checked?"checked":""}>
+        <span class="name">${it.name}</span>
+        ${badge?`<span class="badge ${badge}">${badgeLabel}</span>`:""}
+        ${it.custom?`<button class="del" title="Remove">✕</button>`:""}
+      `;
+      row.querySelector('input').addEventListener('change', (e)=>{
+        const checkedMap = {...(remote.checked||{})};
+        checkedMap[it.id] = e.target.checked;
+        writeField({checked: checkedMap});
+      });
+      if(it.custom){
+        row.querySelector('.del').addEventListener('click', async ()=>{
+          const custom = (remote.custom||[]).filter(c=>c.id!==it.id);
+          const checkedMap = {...(remote.checked||{})}; delete checkedMap[it.id];
+          writeField({custom, checked: checkedMap});
+        });
+      }
+      body.appendChild(row);
+    });
+    head.querySelector('.count').textContent = `${catChecked}/${catItems.length}`;
+    catDiv.appendChild(body);
+    container.appendChild(catDiv);
+  });
+
+  if(!anyRendered) container.innerHTML = `<div class="empty-msg">No items match. Try a different search or filter 🙂</div>`;
+
+  document.getElementById('progressCount').textContent = `${checkedVisible} / ${totalVisible}`;
+  const pct = totalVisible ? Math.round((checkedVisible/totalVisible)*100) : 0;
+  document.getElementById('progressFill').style.width = pct + "%";
+  document.getElementById('confettiMsg').classList.toggle('show', totalVisible>0 && checkedVisible===totalVisible);
+}
+
+async function writeField(partial){
+  if(NOT_CONFIGURED) return;
+  try{
+    await updateDoc(docRef, partial);
+  }catch(e){
+    console.error("Write failed", e);
+    setSync('error', 'Sync error — check connection/config');
+  }
+}
+
+function setSync(state, text){
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncText');
+  dot.className = 'dot' + (state ? ' '+state : '');
+  label.textContent = text;
+}
+
+async function init(){
+  populateCatSelect();
+  render();
+
+  if(NOT_CONFIGURED){
+    setSync('error', 'Not connected — add Firebase config');
+    return;
+  }
+
+  // Ensure the shared document exists
+  const snap = await getDoc(docRef);
+  if(!snap.exists()){
+    await setDoc(docRef, {checked:{}, custom:[], collapsed:{}, updatedAt: serverTimestamp()});
+  }
+
+  // Live listener — fires instantly whenever either of you changes anything
+  onSnapshot(docRef, (snap)=>{
+    if(snap.exists()){
+      remote = snap.data();
+      render();
+      setSync('live', 'Synced live');
+    }
+  }, (err)=>{
+    console.error(err);
+    setSync('error', 'Connection lost — retrying...');
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', (e)=>{ searchTerm = e.target.value; render(); });
+document.getElementById('storeTabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  document.querySelectorAll('#storeTabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); activeStore = btn.dataset.store; render();
+});
+document.getElementById('addBtn').addEventListener('click', ()=>{
+  const nameInput = document.getElementById('newItemName');
+  const catSelect = document.getElementById('newItemCat');
+  const name = nameInput.value.trim();
+  if(!name) return;
+  const id = slug(name) + "_" + Date.now().toString(36);
+  const custom = [...(remote.custom||[]), {id, name, cat: catSelect.value}];
+  nameInput.value = "";
+  writeField({custom});
+});
+document.getElementById('newItemName').addEventListener('keydown', (e)=>{ if(e.key==="Enter") document.getElementById('addBtn').click(); });
+document.getElementById('resetChecksBtn').addEventListener('click', ()=>{
+  if(confirm("Uncheck every item so the list is fresh for next time?")) writeField({checked:{}});
+});
+document.getElementById('clearCustomBtn').addEventListener('click', ()=>{
+  if(confirm("Remove all items you've manually added? (Built-in list is unaffected)")) writeField({custom:[]});
+});
+document.getElementById('expandAllBtn').addEventListener('click', ()=>{
+  const shouldCollapse = document.querySelectorAll('.cat.collapsed').length === 0;
+  const collapsed = {};
+  CATS.forEach(([id])=>{ collapsed[id] = shouldCollapse; });
+  writeField({collapsed});
+});
+
+init();
+</script>
+</body>
+</html>
