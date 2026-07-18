@@ -23,10 +23,7 @@
   .dot{width:8px; height:8px; border-radius:50%; background:#ffd166; flex:none;}
   .dot.live{background:#7ee787;}
   .dot.error{background:#ff6b6b;}
-  .progress-row{display:flex; align-items:center; gap:10px; margin-top:10px;}
-  .progress-bar{flex:1; height:10px; background:rgba(255,255,255,.3); border-radius:6px; overflow:hidden;}
-  .progress-fill{height:100%; background:#ffd166; width:0%; transition:width .3s ease;}
-  .progress-count{font-size:.78rem; white-space:nowrap; font-weight:600;}
+  .tobuy-count{margin-top:10px; font-size:.95rem; font-weight:700;}
   .controls{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;}
   .search{flex:1 1 100%;}
   .search input{
@@ -50,20 +47,20 @@
     background:#fff; border-radius:14px; margin-bottom:10px; overflow:hidden;
     box-shadow:0 1px 4px rgba(0,0,0,.06); border:1px solid #eee7d8;
   }
+  .cat.tobuy{ border:2px solid #2f6b45; }
   .cat-head{
     display:flex; align-items:center; justify-content:space-between; padding:11px 14px;
     cursor:pointer; user-select:none; background:#fbf8ef;
   }
+  .cat.tobuy .cat-head{ background:#e4f0e6; }
   .cat-head .left{display:flex; align-items:center; gap:8px; font-weight:700; font-size:.95rem;}
   .cat-head .count{font-size:.78rem; color:#8a8172; font-weight:600;}
   .cat-body{padding:2px 8px 8px; display:flex; flex-direction:column;}
   .cat.collapsed .cat-body{display:none;}
   .chev{transition:transform .2s; font-size:.75rem; color:#8a8172;}
   .cat.collapsed .chev{transform:rotate(-90deg);}
-  .item{display:flex; align-items:center; gap:10px; padding:9px 8px; border-radius:8px; order:1;}
+  .item{display:flex; align-items:center; gap:10px; padding:9px 8px; border-radius:8px;}
   .item:active{background:#f5f1e6;}
-  .item.checked{order:2; opacity:.45;}
-  .item.checked .name{text-decoration:line-through;}
   .item input[type=checkbox]{width:20px; height:20px; accent-color:#2f6b45; flex:none;}
   .item .name{flex:1; font-size:.93rem;}
   .badge{font-size:.68rem; padding:2px 7px; border-radius:20px; font-weight:700; flex:none;}
@@ -82,8 +79,6 @@
     font-size:.85rem; font-weight:600; cursor:pointer; color:#5b5346;
   }
   footer button.primary{background:#2f6b45; color:#fff; border-color:#2f6b45;}
-  .confetti-msg{text-align:center; font-size:.9rem; font-weight:700; color:#2f6b45; padding:8px 0 0; display:none;}
-  .confetti-msg.show{display:block;}
   .setup-banner{
     background:#fff3cd; border:1px solid #ffe08a; color:#7a5b00; border-radius:12px;
     padding:12px 14px; font-size:.82rem; margin-bottom:12px; line-height:1.4;
@@ -94,7 +89,7 @@
 <body>
 <div class="wrap">
 
-  <!-- This banner only shows if firebaseConfig below hasn't been filled in yet. Remove it once configured. -->
+  <!-- This banner only shows if firebaseConfig below hasn't been filled in yet. -->
   <div class="setup-banner" id="setupBanner" style="display:none;">
     ⚠️ Not connected yet. Open this file and paste your Firebase project config into the
     <code>firebaseConfig</code> object near the bottom of the script, then re-upload.
@@ -102,21 +97,18 @@
 
   <header>
     <h1>🛒 Nahas Family Grocery List</h1>
-    <p>Synced live between your phone and Jennifer's.</p>
+    <p>Check an item when you need it — it moves to your To Buy list. Uncheck it if you don't need it anymore.</p>
     <div class="sync-status"><span class="dot" id="syncDot"></span><span id="syncText">Connecting…</span></div>
-    <div class="progress-row">
-      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-      <div class="progress-count" id="progressCount">0 / 0</div>
-    </div>
+    <div class="tobuy-count" id="tobuyCount">🛒 0 items to buy</div>
   </header>
 
   <div class="controls">
     <div class="search"><input id="searchInput" type="text" placeholder="🔍 Search items..."></div>
     <div class="store-tabs" id="storeTabs">
       <button data-store="ALL" class="active">All</button>
-      <button data-store="G">Grocery</button>
+      <button data-store="G">Costco</button>
       <button data-store="S">Superstore</button>
-      <button data-store="unchecked">To Buy</button>
+      <button data-store="tobuy">To Buy</button>
     </div>
     <div class="add-row">
       <input id="newItemName" type="text" placeholder="Add an item...">
@@ -126,11 +118,10 @@
   </div>
 
   <div id="listContainer"></div>
-  <div class="confetti-msg" id="confettiMsg">🎉 Everything's checked off — nice work!</div>
 </div>
 
 <footer>
-  <button id="resetChecksBtn">Uncheck all</button>
+  <button id="resetChecksBtn">Clear list</button>
   <button id="clearCustomBtn">Remove added items</button>
   <button class="primary" id="expandAllBtn">Expand / collapse all</button>
 </footer>
@@ -168,6 +159,10 @@ if (!NOT_CONFIGURED) {
    STATIC ITEM CATALOG (not stored in Firebase — just code, identical on
    every device. Only checked/custom/collapsed state, which changes as
    you shop, lives in Firestore and syncs live.)
+
+   Checking an item means "we need this" — it moves into the To Buy
+   view. Unchecking means "we don't need it" — it goes back to sitting
+   in its regular category, out of the way.
 --------------------------------------------------------------------- */
 const CATS = [
   ["produce","🥦 Produce"],["dairy","🧀 Dairy & Eggs"],["meat","🥩 Meat & Seafood"],
@@ -179,7 +174,7 @@ const CATS = [
   ["batteries","🔋 Batteries & Auto"],["custom","✏️ Added by you"]
 ];
 
-// [name, category, store]  store: G=Grocery list, S=Superstore list, B=Both
+// [name, category, store]  store: G=Costco list, S=Superstore list, B=Both
 const DATA = [
 ["Dijon mustard","condiments","B"],["Turkey (deli)","meat","G"],["Turkey breast (deli)","meat","G"],
 ["Cucumbers (regular & mini)","produce","B"],["Pesto","condiments","G"],["Mini ice cream sandwiches","frozen","G"],
@@ -292,24 +287,42 @@ function populateCatSelect(){
   });
 }
 
+function badgeInfo(store){
+  if(store==="G") return ["G","Costco"];
+  if(store==="S") return ["S","Superstore"];
+  if(store==="B") return ["B","Both"];
+  return [null,null];
+}
+
 function render(){
   const container = document.getElementById('listContainer');
   container.innerHTML = "";
   const items = allItems();
   const term = searchTerm.trim().toLowerCase();
-  let totalVisible = 0, checkedVisible = 0, anyRendered = false;
+  const toBuyMode = activeStore === "tobuy";
+
+  let totalToBuy = 0;
+  items.forEach(it=>{ if(remote.checked[it.id]) totalToBuy++; });
+  document.getElementById('tobuyCount').textContent = `🛒 ${totalToBuy} item${totalToBuy===1?"":"s"} to buy`;
+
+  let anyRendered = false;
 
   CATS.forEach(([catId, catLabel])=>{
     let catItems = items.filter(it=>it.cat===catId);
-    if(activeStore==="G") catItems = catItems.filter(it=>it.store==="G"||it.store==="B");
-    else if(activeStore==="S") catItems = catItems.filter(it=>it.store==="S"||it.store==="B");
-    else if(activeStore==="unchecked") catItems = catItems.filter(it=>!remote.checked[it.id]);
+
+    if(toBuyMode){
+      catItems = catItems.filter(it=>!!remote.checked[it.id]);
+    } else {
+      catItems = catItems.filter(it=>!remote.checked[it.id]);
+      if(activeStore==="G") catItems = catItems.filter(it=>it.store==="G"||it.store==="B");
+      else if(activeStore==="S") catItems = catItems.filter(it=>it.store==="S"||it.store==="B");
+    }
     if(term) catItems = catItems.filter(it=>it.name.toLowerCase().includes(term));
     if(catItems.length===0) return;
 
     anyRendered = true;
     const catDiv = document.createElement('div');
-    catDiv.className = "cat" + ((remote.collapsed||{})[catId] ? " collapsed" : "");
+    catDiv.className = "cat" + ((remote.collapsed||{})[catId] ? " collapsed" : "") + (toBuyMode ? " tobuy" : "");
     const head = document.createElement('div');
     head.className = "cat-head";
     head.innerHTML = `<div class="left"><span class="chev">▾</span>${catLabel}</div><div class="count"></div>`;
@@ -322,15 +335,11 @@ function render(){
 
     const body = document.createElement('div');
     body.className = "cat-body";
-    let catChecked = 0;
     catItems.sort((a,b)=>a.name.localeCompare(b.name)).forEach(it=>{
       const checked = !!remote.checked[it.id];
-      if(checked) catChecked++;
-      totalVisible++; if(checked) checkedVisible++;
       const row = document.createElement('div');
-      row.className = "item" + (checked ? " checked" : "");
-      const badge = it.store==="G" ? "G" : it.store==="S" ? "S" : it.store==="B" ? "B" : "";
-      const badgeLabel = it.store==="G"?"Grocery":it.store==="S"?"Superstore":it.store==="B"?"Both":"";
+      row.className = "item";
+      const [badge, badgeLabel] = badgeInfo(it.store);
       row.innerHTML = `
         <input type="checkbox" ${checked?"checked":""}>
         <span class="name">${it.name}</span>
@@ -343,7 +352,7 @@ function render(){
         writeField({checked: checkedMap});
       });
       if(it.custom){
-        row.querySelector('.del').addEventListener('click', async ()=>{
+        row.querySelector('.del').addEventListener('click', ()=>{
           const custom = (remote.custom||[]).filter(c=>c.id!==it.id);
           const checkedMap = {...(remote.checked||{})}; delete checkedMap[it.id];
           writeField({custom, checked: checkedMap});
@@ -351,17 +360,16 @@ function render(){
       }
       body.appendChild(row);
     });
-    head.querySelector('.count').textContent = `${catChecked}/${catItems.length}`;
+    head.querySelector('.count').textContent = `${catItems.length} item${catItems.length===1?"":"s"}`;
     catDiv.appendChild(body);
     container.appendChild(catDiv);
   });
 
-  if(!anyRendered) container.innerHTML = `<div class="empty-msg">No items match. Try a different search or filter 🙂</div>`;
-
-  document.getElementById('progressCount').textContent = `${checkedVisible} / ${totalVisible}`;
-  const pct = totalVisible ? Math.round((checkedVisible/totalVisible)*100) : 0;
-  document.getElementById('progressFill').style.width = pct + "%";
-  document.getElementById('confettiMsg').classList.toggle('show', totalVisible>0 && checkedVisible===totalVisible);
+  if(!anyRendered){
+    container.innerHTML = toBuyMode
+      ? `<div class="empty-msg">Nothing on your list yet — check off what you need from the All / Costco / Superstore tabs 🙂</div>`
+      : `<div class="empty-msg">No items match. Try a different search or filter 🙂</div>`;
+  }
 }
 
 async function writeField(partial){
@@ -422,12 +430,15 @@ document.getElementById('addBtn').addEventListener('click', ()=>{
   if(!name) return;
   const id = slug(name) + "_" + Date.now().toString(36);
   const custom = [...(remote.custom||[]), {id, name, cat: catSelect.value}];
+  // New items are assumed needed right away, so they land straight in "To Buy".
+  const checkedMap = {...(remote.checked||{})};
+  checkedMap[id] = true;
   nameInput.value = "";
-  writeField({custom});
+  writeField({custom, checked: checkedMap});
 });
 document.getElementById('newItemName').addEventListener('keydown', (e)=>{ if(e.key==="Enter") document.getElementById('addBtn').click(); });
 document.getElementById('resetChecksBtn').addEventListener('click', ()=>{
-  if(confirm("Uncheck every item so the list is fresh for next time?")) writeField({checked:{}});
+  if(confirm("Clear your whole To Buy list? (Nothing will be marked as needed anymore.)")) writeField({checked:{}});
 });
 document.getElementById('clearCustomBtn').addEventListener('click', ()=>{
   if(confirm("Remove all items you've manually added? (Built-in list is unaffected)")) writeField({custom:[]});
